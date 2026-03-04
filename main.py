@@ -1,52 +1,61 @@
 import os
 import feedparser
-import google.generativeai as genai
+from google import genai
 from google.oauth2.credentials import Credentials
 from googleapiclient.discovery import build
 
 def get_blogger_service():
-    # Credentials භාවිතා කිරීම
     creds = Credentials(
         None,
         refresh_token=os.environ['BLOGGER_REFRESH_TOKEN'],
-        client_id=os.environ['BLOGGER_CLIENT_ID'],
-        client_secret=os.environ['BLOGGER_CLIENT_SECRET'],
+        client_id=os.environ['BLOGGER_CLIENT_ID'], #
+        client_secret=os.environ['BLOGGER_CLIENT_SECRET'], #
         token_uri="https://oauth2.googleapis.com/token"
     )
     return build('blogger', 'v3', credentials=creds)
 
 def run_bot():
     try:
-        # පුවත් මූලාශ්‍රය
+        # පුවත් ලබා ගැනීම
         feed = feedparser.parse("https://www.adaderana.lk/rss.php")
-        if not feed.entries: return
+        if not feed.entries:
+            print("No news entries found.")
+            return
         
-        top_news = feed.entries[0]
-        genai.configure(api_key=os.environ['GEMINI_API_KEY'])
-        model = genai.GenerativeModel('gemini-1.5-flash')
+        entry = feed.entries[0]
         
-        # සිංහල සහ ඉංග්‍රීසි යන භාෂා දෙකෙන්ම ලිවීමට උපදෙස්
-        prompt = f"Write a professional blog post. First write a Sinhala version and then an English version of this news: {top_news.title} - {top_news.summary}. Use HTML tags like <b> and <br>."
-        response = model.generate_content(prompt)
+        # අලුත් Gemini AI Client එක (google-genai)
+        client = genai.Client(api_key=os.environ['GEMINI_API_KEY'])
+        
+        prompt = f"Create a blog post with a Sinhala section and an English section for: {entry.title}. Summary: {entry.summary}. Use HTML <br> for line breaks."
+        
+        response = client.models.generate_content(
+            model="gemini-2.0-flash",
+            contents=prompt
+        )
+        
         content = response.text.replace('\n', '<br>')
         
+        # Blogger වෙත යැවීම
         service = get_blogger_service()
         blog_id = os.environ['BLOGGER_ID'] #
-
+        
         body = {
-            'title': top_news.title,
+            'title': entry.title,
             'content': content,
-            'labels': ['News', 'AI-Update']
+            'labels': ['AI-News', 'Update']
         }
-
-        # isDraft=False මගින් කෙලින්ම සජීවී වේ
+        
+        # isDraft=False මගින් කෙලින්ම සජීවී (Live) වේ
         result = service.posts().insert(blogId=blog_id, body=body, isDraft=False).execute()
         
-        # සාර්ථකව පෝස්ට් වූ බව තහවුරු කිරීමට Link එක පෙන්වයි
-        print(f"පෝස්ට් එක සාර්ථකයි! URL: {result.get('url')}")
+        print("-" * 30)
+        print(f"පෝස්ට් එක සාර්ථකයි!")
+        print(f"පෝස්ට් එකේ URL එක: {result.get('url')}")
+        print("-" * 30)
 
     except Exception as e:
-        print(f"වැරදීමක් සිදු විය: {e}")
+        print(f"දෝෂයක් සිදු විය: {str(e)}")
         exit(1)
 
 if __name__ == "__main__":
