@@ -16,7 +16,7 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v4
         with:
-          python-version: '3.10' # පද්ධතියේ ස්ථායීතාවය සඳහා Python 3.10 භාවිතා කරයි
+          python-version: '3.11' # පද්ධතියේ ස්ථායීතාවය සඳහා Python 3.10 භාවිතා කරයි
 
       - name: Install dependencies
         run: |
